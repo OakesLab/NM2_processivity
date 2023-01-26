@@ -343,6 +343,9 @@ def calculate_trajectory_parameters(myosin_tracks_filtered, filename, nm_per_pix
     myosin_trackdata_df['flow_switch_position'] = flow_switch_position
     myosin_trackdata_df['flow_switch_travel'] = flow_switch_travel
 
+    myosin_trackdata_df = myosin_trackdata_df[myosin_trackdata_df['pathlength_smoothed'] > min_track_length_nm]
+
+
     switched_myosin_trackdata_df = myosin_trackdata_df[myosin_trackdata_df['flow_switch'] == 'switches']
 
     if len(switched_myosin_trackdata_df) > 0:
@@ -361,7 +364,7 @@ def calculate_trajectory_parameters(myosin_tracks_filtered, filename, nm_per_pix
 
     return myosin_trackdata_df, anterograde_myosin_particles, anterograde_myosin_df, retrograde_myosin_particles, retrograde_myosin_df
 
-def plot_centered_trajectories(myosin_trackdata_df, filename, anterograde_color = '#d58440', retrograde_color = '#42749d', smooth_trajectories = False, save_image = True):
+def plot_centered_trajectories(myosin_trackdata_df, filename, anterograde_color = '#d58440', retrograde_color = '#42749d', smooth_trajectories = True, save_image = True):
 
     retro_velocity, antero_velocity = [],[]
     fig, ax = plt.subplots(ncols=2,figsize=(12, 4))
@@ -404,8 +407,8 @@ def plot_centered_trajectories(myosin_trackdata_df, filename, anterograde_color 
 
 
     my_pal = {"retrograde": retrograde_color, "anterograde": anterograde_color}
-    sns.boxplot(data = myosin_trackdata_df, x = 'flow', y='effective_velocity', palette=my_pal, ax=ax[1])
-    sns.swarmplot(data = myosin_trackdata_df, x = 'flow', y='effective_velocity', color='k', alpha= 0.5, size = 3, ax=ax[1])
+    sns.boxplot(data = myosin_trackdata_df, x = 'flow', y='actual_velocity_smoothed', palette=my_pal, ax=ax[1])
+    sns.swarmplot(data = myosin_trackdata_df, x = 'flow', y='actual_velocity_smoothed', color='k', alpha= 0.5, size = 3, ax=ax[1])
     orange_patch = mpatches.Patch(color=anterograde_color, label='Anterograde Flow')
     blue_patch = mpatches.Patch(color=retrograde_color, label='Retrograde Flow')
     ax[1].legend(handles=[blue_patch, orange_patch])
@@ -419,7 +422,8 @@ def plot_centered_trajectories(myosin_trackdata_df, filename, anterograde_color 
 
     return
 
-def make_tracked_movie_stack(filename, imstack, myosin_tracks_filtered, anterograde_myosin_particles, retrograde_myosin_particles, max_inten = None, min_inten = None):
+def make_tracked_movie_stack(filename, imstack, myosin_tracks_filtered, anterograde_myosin_particles, retrograde_myosin_particles, 
+                            max_inten = None, min_inten = None, retrograde_color='#42749d', anterograde_color='#d58440'):
     
     movie_folder = filename[:filename.rfind('/')] + '/movie'
     # make a directory to store all the displacement files
@@ -472,7 +476,7 @@ def make_tracked_movie_stack(filename, imstack, myosin_tracks_filtered, anterogr
 
     return
 
-def break_up_switching_tracks(switched_myosin_trackdata_df, frame_interval = 1, median_angle = 0, retrograde_color='#42749d', anterograde_color='#d58440'):
+def break_up_switching_tracks(switched_myosin_trackdata_df, frame_interval = 1, median_angle = 0):
 
     particle, pathlength, displacement, actual_velocity, effective_velocity, costheta, mean_costheta, duration = [],[],[],[],[],[],[],[]
     x, y, frames, x_smoothed, y_smoothed, frames_smoothed, pathlength_smoothed, displacement_smoothed = [],[],[],[],[],[],[],[]
@@ -590,3 +594,64 @@ def break_up_switching_tracks(switched_myosin_trackdata_df, frame_interval = 1, 
     switching_myosin_df = pd.DataFrame(switching_myosin_dict)
 
     return  switching_myosin_df
+
+def make_movie_with_all_peaks(imstack, filename, all_myosin, min_im_inten=None, max_im_inten=None):
+    # make movie folder name
+    movie_folder = filename[:filename.rfind('/')] + '/movie'
+    # make a directory to store all the displacement files
+    if os.path.isdir(movie_folder) == False:
+        os.mkdir(movie_folder)
+    # figure out the number of images
+    N_images = imstack.shape[0]
+    # make the figure
+    fig, ax = plt.subplots()
+    # display it so we can repopulate it
+    fig.show()
+    # loop through images
+    for frame in np.arange(0,N_images):
+        # clear previous images
+        ax.clear()
+        # show the image with the proper intensity
+        ax.imshow(imstack[frame], vmin=min_im_inten, vmax=max_im_inten, cmap='Greys')
+        # make a reduced data frame for that frame
+        frame_df = all_myosin[all_myosin['frame'] == frame]
+        # scatter plot all the peaks that were found
+        ax.scatter(frame_df['x'],frame_df['y'], marker = 'x', color='r')
+        # make sure the axis is off
+        ax.axis('off')
+        # save the figure
+        fig.savefig(movie_folder + '/Myosin_flow_frame_%03d.png' % frame, dpi = 150)
+
+    # make a list of the saved images
+    file_list = sorted(glob.glob(movie_folder + '/Myosin_flow_frame*.png'))
+    # get the number of frames that were made
+    Nframes = len(file_list)
+    # read in the first frame to figure out crop dimensions of white space
+    first_frame = io.imread(movie_folder + '/Myosin_flow_frame_000.png')
+    first_frame = first_frame[:,:,0]
+    rows, cols = [],[]
+    for i in np.arange(0,first_frame.shape[0]):
+        rows.append(len(np.unique(first_frame[i,:])))
+    for j in np.arange(0,first_frame.shape[1]):
+        cols.append(len(np.unique(first_frame[:,j])))
+
+    # determine where to crop the images
+    rows_withdata = np.where(np.array(rows) > 1)
+    cols_withdata = np.where(np.array(cols) > 1)
+
+    row_begin = rows_withdata[0][0]
+    row_end = rows_withdata[0][-1] + 1
+    col_begin = cols_withdata[0][0]
+    col_end = cols_withdata[0][-1] + 1
+
+    # make an image stack with the right boundaries
+    plot_stack = np.zeros((Nframes, row_end - row_begin, col_end - col_begin,3), dtype = 'uint8')
+    for i,im_name in enumerate(file_list):
+        im = io.imread(im_name)
+        plot_stack[i] = im[row_begin:row_end,col_begin:col_end,0:3]
+    # save the image
+    io.imsave(filename[:-4] + '_allpeaks_movie.tif', plot_stack.astype('uint8'))  
+    #remove the individual images
+    shutil.rmtree(movie_folder)
+
+    return
