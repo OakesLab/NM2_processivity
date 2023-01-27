@@ -283,7 +283,7 @@ def calculate_trajectory_parameters(myosin_tracks_filtered, filename, nm_per_pix
     # save the dataframe to the folder
     myosin_trackdata_df.to_hdf(filename[:-4] + '_all_trackdata.h5', key = 'myosin', mode='w')
 
-    myosin_trackdata_df = myosin_trackdata_df[myosin_trackdata_df['displacement'] > min_track_length_nm]
+    myosin_trackdata_df = myosin_trackdata_df[myosin_trackdata_df['displacement'] > min_track_length_nm] # should we filter off path_length instead? Or maybe both?
     myosin_trackdata_df.to_hdf(filename[:-4] + '_filtered_trackdata.h5', key = 'myosin', mode='w')
     # myosin_trackdata_df = myosin_trackdata_df.reset_index(drop=True)
     # myosin_trackdata_df['particle_id'] = myosin_trackdata_df.index.values
