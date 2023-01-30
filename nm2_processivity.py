@@ -566,6 +566,59 @@ def plot_centered_trajectories(myosin_trackdata_df, filename, anterograde_color 
 
     return
 
+def plot_trajectories_w_histogram(myosin_trackdata_df, filename, anterograde_color = '#d58440', retrograde_color = '#42749d', smooth_trajectories = True, save_image = True):
+    myosin_trackdata_df = myosin_trackdata_df[(myosin_trackdata_df['flow'] == 'anterograde') | (myosin_trackdata_df['flow'] == 'retrograde')]
+
+    retro_velocity, antero_velocity = [],[]
+    fig, ax = plt.subplots(ncols=2,figsize=(12, 4))
+    for index, row in myosin_trackdata_df.iterrows():
+        x = row['x_smoothed']
+        y = -1*row['y_smoothed']
+        
+        # center at the origin
+        x = x-x[0]
+        y = y-y[0]
+        
+        if row['flow'] == 'anterograde':
+            ax[0].plot(x,y,color=anterograde_color)
+            antero_velocity.append(row['average_velocity'])
+        elif row['flow'] == 'retrograde':
+            ax[0].plot(x,y,color=retrograde_color)
+            retro_velocity.append(row['average_velocity'])
+
+    ax[0].axis('equal')        
+    ymin, ymax = ax[0].get_ylim()
+    xmin, xmax = ax[0].get_xlim()
+    ax[0].plot([0,0],[ymin,ymax],'-.k')
+    ax[0].plot([xmin,xmax],[0,0], '-.k')
+
+
+    mean_antero_velocity = np.mean(antero_velocity)
+    mean_retro_velocity = np.mean(retro_velocity)
+    orange_patch = mpatches.Patch(color=anterograde_color, label='Anterograde Flow (' + str(np.round(mean_antero_velocity,2)) + ' nm/s)')
+    blue_patch = mpatches.Patch(color=retrograde_color, label='Retrograde Flow (' + str(np.round(mean_retro_velocity,2)) + ' nm/s)')
+    ax[0].legend(handles=[blue_patch, orange_patch])
+    ax[0].set_xlabel('nm')
+    ax[0].set_ylabel('nm')
+
+
+
+    my_pal = {"retrograde": retrograde_color, "anterograde": anterograde_color}
+    sns.boxplot(data = myosin_trackdata_df, x = 'flow', y='average_velocity', palette=my_pal, ax=ax[1])
+    sns.swarmplot(data = myosin_trackdata_df, x = 'flow', y='average_velocity', color='k', alpha= 0.5, size = 3, ax=ax[1])
+    orange_patch = mpatches.Patch(color=anterograde_color, label='Anterograde Flow')
+    blue_patch = mpatches.Patch(color=retrograde_color, label='Retrograde Flow')
+    ax[1].legend(handles=[blue_patch, orange_patch])
+    ax[1].set_ylabel('velocity (nm/s)')
+    fig.tight_layout()
+
+    fig.show()
+
+    if save_image:
+        fig.savefig(filename[:-4] + '_myosin_puncta_tracked.png', dpi=300)
+
+    return
+
 def make_tracked_movie_stack(filename, imstack, myosin_tracks_filtered, anterograde_myosin_particles, retrograde_myosin_particles, 
                             max_inten = None, min_inten = None, retrograde_color='#42749d', anterograde_color='#d58440'):
     
