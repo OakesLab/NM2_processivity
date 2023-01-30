@@ -178,7 +178,7 @@ def plot_valid_tracks_overlay(myosin_trackdata_df, image, filename, im_min_inten
     plt.show()
     # save the tracked image
     if save_image:
-        myosin_traj_fig.savefig(filename[:-4] + '_valid_tracks_overlaid.png', dpi=300)
+        plt.savefig(filename[:-4] + '_valid_tracks_overlaid.png', dpi=300)
     
 
     return
