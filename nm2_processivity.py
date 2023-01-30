@@ -381,6 +381,133 @@ def calculate_trajectory_parameters(myosin_tracks_filtered, filename, nm_per_pix
 
     return myosin_trackdata_df, anterograde_myosin_particles, anterograde_myosin_df, retrograde_myosin_particles, retrograde_myosin_df
 
+def calculate_trajectory_parameters2(myosin_tracks_filtered, filename, image,
+                                     frame_duration = 1, nm_per_pixel = 1, smoothing_window_size = 5,
+                                        switch_distance_threshold = 350, switch_frame_threshold = 5):
+
+    # calculate average flow direction
+    xcm, ycm = calculate_image_centerofmass(image)
+    cm_vector = [xcm - image.shape[1]/2, ycm - image.shape[0]/2]
+    cm_mag = np.sqrt(cm_vector[0]**2 + cm_vector[1]**2)
+
+
+    # myosin_tracks_filtered.head()
+    # change the value set for index from the frame to the particle
+    myosin_tracks_filtered_indexed = myosin_tracks_filtered.set_index('particle')
+
+    # make a list of all the unique particle values
+    unique_particle=np.unique(myosin_tracks_filtered['particle'].values)
+
+    # smoothing kernel
+    kernel = np.ones((smoothing_window_size,))/smoothing_window_size
+
+    path_length_s = []
+    trajectory_x = []
+    trajectory_y = []
+    displacement = []
+    displacement_s = []
+    trajectory_xs = []
+    trajectory_ys = []
+    path_displament_ratio = []
+    angle_to_median = []
+    flow_vec = []
+    path_duration, path_duration_s = [],[]
+    frame_list, frame_list_s = [],[]
+    average_velocity = []
+    effective_velocity = []
+    flow_direction = []
+    flow_switch = []
+    flow_switch_position, flow_switch_travel = [],[]
+
+    for puncta in unique_particle:
+        # make a table of the points for each individual myosin puncta
+        individual_table = myosin_tracks_filtered_indexed.loc[puncta]
+        # only do the calculations if the pathlength is long enough to be smoothed
+        if len(individual_table) > smoothing_window_size:
+            trajectory_x.append(individual_table['x'].values)
+            trajectory_xs.append(np.convolve(individual_table['x'], kernel, mode='valid'))
+            trajectory_y.append(individual_table['y'].values)
+            trajectory_ys.append(np.convolve(individual_table['y'], kernel, mode='valid'))
+            path_duration.append(np.sum(np.diff(individual_table['frame'].values) * frame_duration))
+            frame_list.append(individual_table['frame'].values)
+            frame_list_s.append(frame_list[-1][int(np.floor(smoothing_window_size/2)):-int(np.ceil(smoothing_window_size/2))+1])
+            path_duration_s.append(np.sum(np.diff(frame_list_s[-1]) * frame_duration))
+            path_length_s.append(np.sum(np.sqrt((np.diff(trajectory_xs[-1])**2 + np.diff(trajectory_ys[-1])**2))) * nm_per_pixel)
+            average_velocity.append(path_length_s[-1] / path_duration_s[-1])
+            displacement.append(np.sqrt((trajectory_x[-1][-1] - trajectory_x[-1][0])**2 + (trajectory_y[-1][-1] - trajectory_y[-1][0])**2) * nm_per_pixel)
+            displacement_s.append(np.sqrt((trajectory_xs[-1][-1] - trajectory_xs[-1][0])**2 + (trajectory_ys[-1][-1] - trajectory_ys[-1][0])**2) * nm_per_pixel)
+            effective_velocity.append(displacement_s[-1] / path_duration_s[-1])
+            flow_vec.append([trajectory_xs[-1][-1]-trajectory_xs[-1][0],trajectory_ys[-1][-1]-trajectory_ys[-1][0]])
+            angle_to_median.append(np.arccos((flow_vec[-1][0]*cm_vector[0] + flow_vec[-1][1]*cm_vector[1])/cm_mag/np.sqrt(flow_vec[-1][0]**2 + flow_vec[-1][1]**2)))
+            if angle_to_median[-1] < np.pi/3:
+                flow_direction.append('retrograde')
+            elif angle_to_median[-1] > 2*np.pi/3:
+                flow_direction.append('anterograde')
+            else:
+                flow_direction.append('neither')
+
+            # path switching
+            # determine whether it switches directions
+            distance_from_end = ((trajectory_xs[-1]-trajectory_xs[-1][-1])**2 + (trajectory_ys[-1]-trajectory_ys[-1][-1])**2) ** 0.5
+            distance_max = np.where(distance_from_end == np.max(distance_from_end))
+            distance_max_frame = distance_max[0][0]
+            distance_max_travel = (((trajectory_xs[-1][distance_max_frame])**2 + (trajectory_ys[-1][distance_max_frame])**2) ** 0.5) * nm_per_pixel
+            # check to see if it switches
+            if (distance_max[0][0] > switch_frame_threshold) and (distance_max_travel > switch_distance_threshold):
+                flow_switch.append('switches')
+                flow_switch_position.append(distance_max[0][0])
+                flow_switch_travel.append(distance_max_travel)
+            else:
+                flow_switch.append('straight')
+                flow_switch_position.append(0)
+                flow_switch_travel.append(0)
+
+
+    # make the dataframe
+    myosin_trackdata_df = pd.DataFrame()
+    myosin_trackdata_df['x'] = trajectory_x
+    myosin_trackdata_df['y'] = trajectory_y
+    myosin_trackdata_df['displacement'] = displacement
+    myosin_trackdata_df['frames'] = frame_list
+    myosin_trackdata_df['duration'] = path_duration
+    myosin_trackdata_df['x_smoothed'] = trajectory_xs
+    myosin_trackdata_df['y_smoothed'] = trajectory_ys
+    myosin_trackdata_df['displacement_smoothed'] = displacement_s
+    myosin_trackdata_df['frames_smoothed'] = frame_list_s
+    myosin_trackdata_df['duration_smoothed'] = path_duration_s
+    myosin_trackdata_df['pathlength_smoothed'] = path_length_s
+    myosin_trackdata_df['average_velocity'] = average_velocity
+    myosin_trackdata_df['effective_velocity'] = effective_velocity
+    myosin_trackdata_df['angle'] = angle_to_median
+    myosin_trackdata_df['flow'] = flow_direction
+    myosin_trackdata_df['flow_switch'] = flow_switch
+    myosin_trackdata_df['flow_vec'] = flow_vec
+    myosin_trackdata_df['flow_switch_position'] = flow_switch_position
+    myosin_trackdata_df['flow_switch_travel'] = flow_switch_travel
+
+    # only keep tracks of certain lengths
+    myosin_trackdata_df = myosin_trackdata_df[(myosin_trackdata_df['pathlength_smoothed'] > min_track_length_nm)]
+    # myosin_trackdata_df = myosin_trackdata_df[(myosin_trackdata_df['pathlength_smoothed'] > min_track_length_nm) & (myosin_trackdata_df['displacement_smoothed'] > min_track_length_nm/3)]
+
+    # reset index
+    myosin_trackdata_df = myosin_trackdata_df.reset_index(drop=True)
+    myosin_trackdata_df['particle_id'] = np.arange(0,len(myosin_trackdata_df))
+    # make a subset of paths that switch
+    switched_myosin_trackdata_df = myosin_trackdata_df[myosin_trackdata_df['flow_switch'] == 'switches']
+    # break apart tracks that switch direction
+    if len(switched_myosin_trackdata_df) > 0:
+
+        switching_myosin_df = split_switching_tracks_dataframe(switched_myosin_trackdata_df, frame_duration=frame_interval, nm_per_pixel=nm_per_pixel, cm_vector=cm_vector)
+        # only keep the original straight tracks
+        myosin_trackdata_df = myosin_trackdata_df[myosin_trackdata_df['flow_switch'] == 'straight']
+        # add on the broken apart switched tracks
+        myosin_trackdata_df = pd.concat([myosin_trackdata_df, switching_myosin_df])
+
+    # save the dataframe
+    myosin_trackdata_df.to_hdf(filename[:-4] + '_filtered_trackdata.h5', key = 'myosin', mode='w')
+    
+    return myosin_trackdata_df
+
 def plot_centered_trajectories(myosin_trackdata_df, filename, anterograde_color = '#d58440', retrograde_color = '#42749d', smooth_trajectories = True, save_image = True):
 
     retro_velocity, antero_velocity = [],[]
