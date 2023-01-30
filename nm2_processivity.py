@@ -171,10 +171,10 @@ def plot_valid_tracks_overlay(myosin_trackdata_df, image, filename, im_min_inten
     plt.figure()
     plt.imshow(image, vmin=im_min_inten, vmax=im_max_inten, cmap='Greys')
     for index, row in myosin_trackdata_df.iterrows():
-    if row['flow'] == 'retrograde':
-        plt.plot(row['x_smoothed'],row['y_smoothed'],'.-',color=retrograde_color)
-    elif row['flow'] == 'anterograde':
-        plt.plot(row['x_smoothed'],row['y_smoothed'],'.-',color=anterograde_color)
+        if row['flow'] == 'retrograde':
+            plt.plot(row['x_smoothed'],row['y_smoothed'],'.-',color=retrograde_color)
+        elif row['flow'] == 'anterograde':
+            plt.plot(row['x_smoothed'],row['y_smoothed'],'.-',color=anterograde_color)
     plt.show()
     # save the tracked image
     if save_image:
