@@ -167,6 +167,23 @@ def plot_track_overlays(myosin_tracks_filtered, filename, imstack_LoG, save_imag
         
     return
 
+def plot_valid_tracks_overlay(myosin_trackdata_df, image, filename, im_min_inten = None, im_max_inten = None,save_image=True):
+    plt.figure()
+    plt.imshow(image, vmin=im_min_inten, vmax=im_max_inten, cmap='Greys')
+    for index, row in myosin_trackdata_df.iterrows():
+    if row['flow'] == 'retrograde':
+        plt.plot(row['x_smoothed'],row['y_smoothed'],'.-',color=retrograde_color)
+    elif row['flow'] == 'anterograde':
+        plt.plot(row['x_smoothed'],row['y_smoothed'],'.-',color=anterograde_color)
+    plt.show()
+    # save the tracked image
+    if save_image:
+        myosin_traj_fig.savefig(filename[:-4] + '_valid_tracks_overlaid.png', dpi=300)
+    
+
+    return
+
+
 def calculate_trajectory_parameters(myosin_tracks_filtered, filename, nm_per_pixel, frame_interval = 1, min_track_length_nm = 1000, smoothing_window_size = 5):
 
     switch_distance_threshold = 350 # in nm
@@ -718,7 +735,7 @@ def split_switching_tracks_dataframe(switched_myosin_trackdata_df, nm_per_pixel 
         angle.append(np.arccos((flow_vec[-1][0]*cm_vector[0] + flow_vec[-1][1]*cm_vector[1])/cm_mag/np.sqrt(flow_vec[-1][0]**2 + flow_vec[-1][1]**2)))
         if angle[-1] < np.pi/3:
             flow.append('retrograde')
-        elif angle_to_median[-1] > 2*np.pi/3:
+        elif angle[-1] > 2*np.pi/3:
             flow.append('anterograde')
         else:
             flow.append('neither')
@@ -745,7 +762,7 @@ def split_switching_tracks_dataframe(switched_myosin_trackdata_df, nm_per_pixel 
         angle.append(np.arccos((flow_vec[-1][0]*cm_vector[0] + flow_vec[-1][1]*cm_vector[1])/cm_mag/np.sqrt(flow_vec[-1][0]**2 + flow_vec[-1][1]**2)))
         if angle[-1] < np.pi/3:
             flow.append('retrograde')
-        elif angle_to_median[-1] > 2*np.pi/3:
+        elif angle[-1] > 2*np.pi/3:
             flow.append('anterograde')
         else:
             flow.append('neither')
