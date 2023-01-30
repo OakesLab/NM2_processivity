@@ -167,7 +167,8 @@ def plot_track_overlays(myosin_tracks_filtered, filename, imstack_LoG, save_imag
         
     return
 
-def plot_valid_tracks_overlay(myosin_trackdata_df, image, filename, im_min_inten = None, im_max_inten = None,save_image=True):
+def plot_valid_tracks_overlay(myosin_trackdata_df, image, filename, im_min_inten = None, im_max_inten = None,save_image=True, 
+                                anterograde_color = '#d58440', retrograde_color = '#42749d'):
     plt.figure()
     plt.imshow(image, vmin=im_min_inten, vmax=im_max_inten, cmap='Greys')
     for index, row in myosin_trackdata_df.iterrows():
@@ -382,8 +383,8 @@ def calculate_trajectory_parameters(myosin_tracks_filtered, filename, nm_per_pix
     return myosin_trackdata_df, anterograde_myosin_particles, anterograde_myosin_df, retrograde_myosin_particles, retrograde_myosin_df
 
 def calculate_trajectory_parameters2(myosin_tracks_filtered, filename, image,
-                                     frame_duration = 1, nm_per_pixel = 1, smoothing_window_size = 5,
-                                        switch_distance_threshold = 350, switch_frame_threshold = 5):
+                                     frame_duration = 1, nm_per_pixel = 1, min_track_length_nm = 900, 
+                                     smoothing_window_size = 5, switch_distance_threshold = 350, switch_frame_threshold = 5):
 
     # calculate average flow direction
     xcm, ycm = calculate_image_centerofmass(image)
@@ -497,7 +498,7 @@ def calculate_trajectory_parameters2(myosin_tracks_filtered, filename, image,
     # break apart tracks that switch direction
     if len(switched_myosin_trackdata_df) > 0:
 
-        switching_myosin_df = split_switching_tracks_dataframe(switched_myosin_trackdata_df, frame_duration=frame_interval, nm_per_pixel=nm_per_pixel, cm_vector=cm_vector)
+        switching_myosin_df = split_switching_tracks_dataframe(switched_myosin_trackdata_df, frame_duration=frame_duration, nm_per_pixel=nm_per_pixel, cm_vector=cm_vector)
         # only keep the original straight tracks
         myosin_trackdata_df = myosin_trackdata_df[myosin_trackdata_df['flow_switch'] == 'straight']
         # add on the broken apart switched tracks
