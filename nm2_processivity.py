@@ -683,3 +683,98 @@ def calculate_image_centerofmass(image):
     ycm = np.sum(Y * (image-bg) / np.sum((image-bg)))
     
     return xcm, ycm
+
+def split_switching_tracks_dataframe(switched_myosin_trackdata_df, nm_per_pixel = 1, frame_duration = 1, cm_vector = [1,0]):
+    # updated method to split switching tracks
+    
+    # calculate the center of mass vector length
+    cm_mag = np.sqrt(cm_vector[0]**2 + cm_vector[1]**2)
+
+    # empty lists to hold everything
+    x,y,x_smoothed,y_smoothed= [],[],[],[]
+    displacement, displacement_smoothed = [],[]
+    frames, frames_smoothed = [],[]
+    duration, duration_smoothed = [],[]
+    pathlength_smoothed, average_velocity, effective_velocity = [],[],[]
+    angle, flow, flow_switch, flow_vec, flow_switch_position, flow_switch_travel, flow_vec=[],[],[],[],[],[],[]
+    particle_id = []
+
+    for index, row in switched_myosin_trackdata_df.iterrows():
+        # first half of the track
+        x.append(row['x'])
+        y.append(row['y'])
+        displacement.append(row['displacement'])
+        frames.append(row['frames'])
+        duration.append(row['duration'])
+        x_smoothed.append(row['x_smoothed'][:row['flow_switch_position']])
+        y_smoothed.append(row['y_smoothed'][:row['flow_switch_position']])
+        frames_smoothed.append(row['frames_smoothed'][:row['flow_switch_position']])
+        displacement_smoothed.append(np.sqrt((x_smoothed[-1][-1] - x_smoothed[-1][0])**2 + (y_smoothed[-1][-1] - y_smoothed[-1][0])**2) * nm_per_pixel)
+        duration_smoothed.append(np.sum(np.diff(frames_smoothed[-1]) * frame_duration))
+        pathlength_smoothed.append(np.sum(np.sqrt((np.diff(x_smoothed[-1])**2 + np.diff(y_smoothed[-1])**2))) * nm_per_pixel)
+        average_velocity.append(pathlength_smoothed[-1] / duration_smoothed[-1])
+        effective_velocity.append(displacement_smoothed[-1] / duration_smoothed[-1])
+        flow_vec.append([x_smoothed[-1][-1]-x_smoothed[-1][0],y_smoothed[-1][-1]-y_smoothed[-1][0]])
+        angle.append(np.arccos((flow_vec[-1][0]*cm_vector[0] + flow_vec[-1][1]*cm_vector[1])/cm_mag/np.sqrt(flow_vec[-1][0]**2 + flow_vec[-1][1]**2)))
+        if angle[-1] < np.pi/3:
+            flow.append('retrograde')
+        elif angle_to_median[-1] > 2*np.pi/3:
+            flow.append('anterograde')
+        else:
+            flow.append('neither')
+        flow_switch.append('switches')
+        flow_switch_position.append(row['flow_switch_position'])
+        flow_switch_travel.append(row['flow_switch_travel'])
+        particle_id.append(row['particle_id'])
+
+        # second half of the track
+        x.append(row['x'])
+        y.append(row['y'])
+        displacement.append(row['displacement'])
+        frames.append(row['frames'])
+        duration.append(row['duration'])
+        x_smoothed.append(row['x_smoothed'][row['flow_switch_position']:])
+        y_smoothed.append(row['y_smoothed'][row['flow_switch_position']:])
+        frames_smoothed.append(row['frames_smoothed'][row['flow_switch_position']:])
+        displacement_smoothed.append(np.sqrt((x_smoothed[-1][-1] - x_smoothed[-1][0])**2 + (y_smoothed[-1][-1] - y_smoothed[-1][0])**2) * nm_per_pixel)
+        duration_smoothed.append(np.sum(np.diff(frames_smoothed[-1]) * frame_duration))
+        pathlength_smoothed.append(np.sum(np.sqrt((np.diff(x_smoothed[-1])**2 + np.diff(y_smoothed[-1])**2))) * nm_per_pixel)
+        average_velocity.append(pathlength_smoothed[-1] / duration_smoothed[-1])
+        effective_velocity.append(displacement_smoothed[-1] / duration_smoothed[-1])
+        flow_vec.append([x_smoothed[-1][-1]-x_smoothed[-1][0],y_smoothed[-1][-1]-y_smoothed[-1][0]])
+        angle.append(np.arccos((flow_vec[-1][0]*cm_vector[0] + flow_vec[-1][1]*cm_vector[1])/cm_mag/np.sqrt(flow_vec[-1][0]**2 + flow_vec[-1][1]**2)))
+        if angle[-1] < np.pi/3:
+            flow.append('retrograde')
+        elif angle_to_median[-1] > 2*np.pi/3:
+            flow.append('anterograde')
+        else:
+            flow.append('neither')
+        flow_switch.append('switches')
+        flow_switch_position.append(row['flow_switch_position'])
+        flow_switch_travel.append(row['flow_switch_travel'])
+        particle_id.append(row['particle_id'])
+
+    #store into a dataframe
+    switching_myosin_df = pd.DataFrame()
+    switching_myosin_df['x'] = x
+    switching_myosin_df['y'] = y
+    switching_myosin_df['displacement'] = displacement
+    switching_myosin_df['frames'] = frames
+    switching_myosin_df['duration'] = duration
+    switching_myosin_df['x_smoothed'] = x_smoothed
+    switching_myosin_df['y_smoothed'] = y_smoothed
+    switching_myosin_df['displacement_smoothed'] = displacement_smoothed
+    switching_myosin_df['frames_smoothed'] = frames_smoothed
+    switching_myosin_df['duration_smoothed'] = duration_smoothed
+    switching_myosin_df['pathlength_smoothed'] = pathlength_smoothed
+    switching_myosin_df['average_velocity'] = average_velocity
+    switching_myosin_df['effective_velocity'] = effective_velocity
+    switching_myosin_df['angle'] = angle
+    switching_myosin_df['flow'] = flow
+    switching_myosin_df['flow_switch'] = flow_switch
+    switching_myosin_df['flow_vec'] = flow_vec
+    switching_myosin_df['flow_switch_position'] = flow_switch_position
+    switching_myosin_df['flow_switch_travel'] = flow_switch_travel
+    switching_myosin_df['particle_id'] = particle_id
+    
+    return switching_myosin_df
