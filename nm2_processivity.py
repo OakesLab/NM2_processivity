@@ -655,3 +655,31 @@ def make_movie_with_all_peaks(imstack, filename, all_myosin, min_im_inten=None, 
     shutil.rmtree(movie_folder)
 
     return
+
+def find_background(image):
+    # make a histrogram of the intensity vlaues
+    counts, bins = np.histogram(image.ravel(), bins = 200)
+    # find where the absolute biggest peak is - should be the background
+    hist_max = np.where(counts == np.max(counts))
+    # find that value in the bins
+    bg = bins[hist_max[0][0]]
+    
+    return bg
+
+def calculate_image_centerofmass(image):
+    image = image.astype('float32')
+    # the image dimensions
+    N_rows, N_cols = image.shape
+    # make matrices with positions
+    xmat = np.arange(0, N_cols)
+    ymat = np.arange(0, N_rows)
+    X, Y = np.meshgrid(xmat,ymat)
+    
+    # calculate the image background
+    bg = find_background(image)
+    
+    # calculate the center of mass
+    xcm = np.sum(X * (image-bg) / np.sum((image-bg)))
+    ycm = np.sum(Y * (image-bg) / np.sum((image-bg)))
+    
+    return xcm, ycm
