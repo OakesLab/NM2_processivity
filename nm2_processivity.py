@@ -978,4 +978,28 @@ def split_switching_tracks_dataframe(switched_myosin_trackdata_df, nm_per_pixel 
     return switching_myosin_df
 
 def gaussian_fit(intensity, A, B, C):
-    return A * np.exp(-1 * ((intensity - B) / C) ** 2)
+    return A * np.exp(-1/2 * ((intensity - B) / C) ** 2)
+
+def gaussian_fit_line(data, flow_direction):
+    if flow_direction == 'retrograde':
+        bins = np.arange(-150,0,2)
+    elif flow_direction == 'anterograde':
+        bins = np.arange(0,150,2)
+        
+    all_bins = np.arange(-150,150)
+    counts, bins = np.histogram(data, bins=bins)
+
+    # parameter guesses
+    # A is going to be related to the maximum of the curve
+    # B is going to be related to where that maximum is
+    # C is going to be related to the width of that curve
+    hist_max = np.argwhere(counts == np.max(counts))
+    p0 = [np.max(counts), bins[hist_max[0,0]], 20]
+
+    # Fit the curve
+    params, params_covariance = optimize.curve_fit(gaussian_fit, bins[:-1], counts, p0)
+
+    # Create a fit line using the parameters from your fit and the original bins
+    fit_line = gaussian_fit(all_bins, params[0], params[1], params[2])
+    
+    return fit_line, all_bins, params
