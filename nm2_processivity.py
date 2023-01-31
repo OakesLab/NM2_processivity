@@ -976,3 +976,6 @@ def split_switching_tracks_dataframe(switched_myosin_trackdata_df, nm_per_pixel 
     switching_myosin_df['particle_id'] = particle_id
     
     return switching_myosin_df
+
+def gaussian_fit(intensity, A, B, C):
+    return A * np.exp(-1 * ((intensity - B) / C) ** 2)
