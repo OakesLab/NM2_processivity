@@ -16,6 +16,8 @@ from image_plotting_tools import *
 from interactive_plotting_tools import *
 import czifile
 import shutil
+from scipy import optimize               # for curve fitting
+
 
 def calculate_length_and_velocity(x,y,frames, frame_duration=0.5):
     # Calculate delta_x and delta_y : distance traveled between consecutive frames
@@ -1001,5 +1003,11 @@ def gaussian_fit_line(data, flow_direction):
 
     # Create a fit line using the parameters from your fit and the original bins
     fit_line = gaussian_fit(all_bins, params[0], params[1], params[2])
+
+    #calculate R^2 value of fit
+    residuals = counts - gaussian_fit(bins[:-1], *params)
+    sum_squared_residuals = np.sum(residuals**2)
+    sum_squared_total = np.sum((counts - np.mean(counts))**2)
+    r_squared = 1 - (sum_squared_residuals / sum_squared_total)
     
-    return fit_line, all_bins, params
+    return fit_line, all_bins, params, r_squared
