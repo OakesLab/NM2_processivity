@@ -982,11 +982,11 @@ def split_switching_tracks_dataframe(switched_myosin_trackdata_df, nm_per_pixel 
 def gaussian_fit(intensity, A, B, C):
     return A * np.exp(-1/2 * ((intensity - B) / C) ** 2)
 
-def gaussian_fit_line(data, flow_direction):
+def gaussian_fit_line(data, flow_direction, bin_size=2):
     if flow_direction == 'retrograde':
-        bins = np.arange(-150,0,2)
+        bins = np.arange(-150,0,bin_size)
     elif flow_direction == 'anterograde':
-        bins = np.arange(0,150,2)
+        bins = np.arange(0,150,bin_size)
         
     all_bins = np.arange(-150,150)
     counts, bins = np.histogram(data, bins=bins)
