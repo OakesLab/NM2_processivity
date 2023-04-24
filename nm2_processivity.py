@@ -1011,3 +1011,52 @@ def gaussian_fit_line(data, flow_direction, bin_size=2):
     r_squared = 1 - (sum_squared_residuals / sum_squared_total)
     
     return fit_line, all_bins, params, r_squared
+
+def calculate_average_msd(trackdata, nm_per_pixel = 40, frame_interval=1):
+    # empty lists to hold msd and timelags
+    msd_list, timelag_list = [],[]
+
+    # loop through the dataframe to calculate the MSD for each track
+    for index,row in trackdata.iterrows():
+        x = trackdata['x_smoothed'][index]
+        y = trackdata['y_smoothed'][index]
+        t = trackdata['frames_smoothed'][index]
+        # empty list to hold msd
+        msd = []
+        timelag = np.arange(1,int(0.75*len(x)))
+        # calculate the msd
+        for tlag in timelag:
+            xdiff = x[tlag:] - x[:-tlag]
+            ydiff = y[tlag:] - y[:-tlag]
+            distance_diff = np.sqrt(xdiff**2 + ydiff**2) * nm_per_pixel
+            msd.append(np.nanmean(distance_diff**2))
+
+        # add the MSD and timelag to our larger lists
+        msd_list.append(msd)
+        timelag_list.append(timelag)
+        
+    # figure out the length of each track
+    N = [len(x) for x in msd_list]
+    # make an NaN array to hold everything
+    MSD = np.empty((len(msd_list), np.max(N)))
+    MSD[:] = np.nan
+    TIME = MSD.copy()
+    # populate the array with the MSDs
+    for index, (timelag, trajectory) in enumerate(zip(timelag_list, msd_list)):
+        MSD[index,:len(trajectory)] = trajectory
+        TIME[index,:len(trajectory)] = timelag
+
+    # calculate the mean value and error for each timelag
+    MSD_mean = np.nanmean(MSD, axis=0)
+    MSD_error = np.nanstd(MSD, axis =0)
+    TIME_mean = np.nanmean(TIME, axis = 0)
+    # only keep the mean values for more than 15 tracks
+    count = MSD.shape[0] - np.sum(np.isnan(MSD),axis=0)
+    last_point = np.argwhere(count < 15)
+    last_point = last_point[0][0]
+    MSD_mean = MSD_mean[:last_point]
+    MSD_error = MSD_error[:last_point]
+    TIME_mean = TIME_mean[:last_point] * frame_interval
+    
+    return TIME_mean, MSD_mean, MSD_error, msd_list, timelag_list
+
