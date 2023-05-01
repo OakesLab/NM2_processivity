@@ -1049,14 +1049,15 @@ def calculate_average_msd(trackdata, nm_per_pixel = 40, frame_interval=1):
     # calculate the mean value and error for each timelag
     MSD_mean = np.nanmean(MSD, axis=0)
     MSD_error = np.nanstd(MSD, axis =0)
-    TIME_mean = np.nanmean(TIME, axis = 0)
+    TIME_mean = np.nanmean(TIME, axis = 0) * frame_interval
     # only keep the mean values for more than 15 tracks
     count = MSD.shape[0] - np.sum(np.isnan(MSD),axis=0)
     last_point = np.argwhere(count < 15)
-    last_point = last_point[0][0]
-    MSD_mean = MSD_mean[:last_point]
-    MSD_error = MSD_error[:last_point]
-    TIME_mean = TIME_mean[:last_point] * frame_interval
+    if len(last_point) != 0:
+        last_point = last_point[0][0]
+        MSD_mean = MSD_mean[:last_point]
+        MSD_error = MSD_error[:last_point]
+        TIME_mean = TIME_mean[:last_point]
     
     return TIME_mean, MSD_mean, MSD_error, msd_list, timelag_list
 
